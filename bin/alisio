@@ -1,0 +1,104 @@
+#!/usr/bin/env perl
+
+use warnings;
+use strict;
+
+use XML::LibXML;
+use XML::LibXML::XPathContext;
+use HTML::Strip;
+use File::Temp;
+use Net::Twitter;
+use YAML qw( LoadFile );
+use Getopt::Long qw( GetOptions );
+use FindBin;
+
+my $config_file;
+GetOptions ( "config=s" => \$config_file );
+
+if ( defined $config_file ) {
+    unless ( -r $config_file ) {
+        die "Can't open config file $config_file: $!";
+    }
+}
+else {
+    $config_file = "$FindBin::Bin/../conf/alisio.conf";
+}
+
+my $config_ref = LoadFile( $config_file );
+
+my $html_stripper = HTML::Strip->new;
+
+my $twitter = Net::Twitter->new(
+    traits   => [qw/API::RESTv1_1/],
+    consumer_key        => $config_ref->{ consumer_key },
+    consumer_secret     => $config_ref->{ consumer_secret },
+    access_token        => $config_ref->{ access_token },
+    access_token_secret => $config_ref->{ access_token_secret},
+);
+
+my $feed_url = $config_ref->{ feed_url };
+
+my $feed_dom = XML::LibXML->load_xml( location => $feed_url );
+my $feed_root = $feed_dom->documentElement;
+
+my @namespaces = $feed_root->getNamespaces;
+if ( scalar @namespaces > 1 ) {
+    die "Bzuh, there is more than one namespace defined. I die.";
+}
+
+my $xpc = XML::LibXML::XPathContext->new;
+$xpc->registerNs('feed', $namespaces[0]->declaredURI);
+
+my $blog_title = $xpc->findvalue( 'feed:title', $feed_root );
+
+# XXX This pays attention only to link elements with no 'rel' attributes.
+#     Maybe we should support rel="alternate". Or others?
+#     See: http://feedenabled.org/developers/syndication/#link
+
+my $blog_url = $xpc->findvalue( 'feed:link[not(@rel)]/@href', $feed_root );
+# We want only the part of the URL after the schema.
+$blog_url =~ s{^\w+://}{};
+
+my ( $first_post_node ) = $xpc->findnodes( '(feed:entry)[1]', $feed_root );
+
+my $first_post_title = $xpc->findvalue( 'feed:title', $first_post_node );
+$first_post_title = $html_stripper->parse( $first_post_title );
+
+my $first_post_url =
+    $xpc->findvalue( 'feed:link[not(@rel)]/@href', $first_post_node );
+
+my $first_post_text = $xpc->findvalue( 'feed:content', $first_post_node );
+
+my $clean_text = $html_stripper->parse( $first_post_text );
+$clean_text =~ s/^\s+//;
+$clean_text =~ s/ (\.|,)/$1/g; # Fix stuff like "A tag was removed ."
+
+my ( $first_graf ) = $clean_text =~ /^(.*)/;
+
+my $exhortation = "To read the rest of this post, please click the link "
+                  . "in the tweet, or visit $blog_url.";
+
+my $full_text = qq{$first_graf\n\n<i>$exhortation</i>};
+
+my $text_tempfile  = File::Temp->new;
+my $image_tempfile = File::Temp->new;
+
+binmode $text_tempfile, ':utf8';
+print $text_tempfile $full_text;
+
+my $pango_command = sprintf
+    'pango-view --markup --dpi=300 -w 300 -o %s %s',
+    $image_tempfile->filename,
+    $text_tempfile->filename
+;
+system $pango_command;
+
+my $mogrify_command = sprintf
+    'mogrify -bordercolor white -border 40 %s',
+    $image_tempfile->filename
+;
+system $mogrify_command;
+
+my $tweet_text = "$blog_title : $first_post_title $first_post_url";
+
+$twitter->update_with_media( $tweet_text, [ $image_tempfile->filename ] );
