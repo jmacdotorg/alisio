@@ -52,7 +52,7 @@ Otherwise, run it like so:
 
 Either way, it should do the right thing, unless it doesn't, per the following section.
 
-## Bugs and TODD
+## Bugs and TODO
 
 This is super-alpha and doesn't even have a version number on it yet. Use at your own risk.
 
