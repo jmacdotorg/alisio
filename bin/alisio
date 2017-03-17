@@ -103,9 +103,9 @@ my $tweet_text = "$blog_title : $first_post_title $first_post_url";
 
 my $media_ref = $twitter->upload( [ $image_tempfile->filename ] );
 
-my $alt_text = 'This image is just the first paragraph from of the latest '
-               . "post at $blog_url. Please visit the link in the tweet to "
-               . 'read the full post.';
+my $alt_text = 'This image is just the first paragraph of the latest '
+               . "post at $blog_url. Please visit the link in the tweet "
+               . 'to read the full post.';
 
 $twitter->create_media_metadata( {
     media_id => $media_ref->{ media_id },
@@ -113,6 +113,6 @@ $twitter->create_media_metadata( {
 } );
 
 $twitter->update( {
-    status   => $tweet_text,
+    status    => $tweet_text,
     media_ids => $media_ref->{ media_id },
 } );
