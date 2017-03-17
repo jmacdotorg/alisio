@@ -34,7 +34,7 @@ If you enjoy blindly running `curl | bash` invocations straight off of GitHub RE
 
     curl -fsSL https://cpanmin.us | perl - --installdeps .
     
-More conservative users can install [cpanm] manually and then run `cpanm --installdeps .` instead.
+More conservative users can install [cpanm](https://github.com/miyagawa/cpanminus) manually and then run `cpanm --installdeps .` instead.
 
 ## Configuration
 
@@ -70,4 +70,4 @@ This is super-alpha and doesn't even have a version number on it yet. Use at you
 
 ## Blame
 
-Jason McIntosh ([jmac@jmac.org](mailto:jmac@jmac.org), GitHub: @jmacdotorg, Twitter: [@jmacdotorg](http://twitter.com/jmacdotorg)) created this tool. Questions, comments, et cetera to him. Pull requests always welcome. Thanks!
+Jason McIntosh ([jmac@jmac.org](mailto:jmac@jmac.org), GitHub: [jmacdotorg](https://github.com/jmacdotorg), Twitter: [@jmacdotorg](http://twitter.com/jmacdotorg)) created this tool. Questions, comments, et cetera to him. Pull requests always welcome. Thanks!
