@@ -24,8 +24,6 @@ You can find all this tool's prerequisite software through your favorite package
 
 * [Pango](http://www.pango.org), giving you the `pango-view` command-line program.
 
-* [ImageMagick](http://www.imagemagick.org), giving you the `mogrify` command-line program.
-
 * [libxml2](http://www.xmlsoft.org). (If the command `xml2-config --version` returns something that looks like a version number, you're probably OK.)
 
 ### Perl modules

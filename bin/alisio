@@ -87,17 +87,11 @@ binmode $text_tempfile, ':utf8';
 print $text_tempfile $full_text;
 
 my $pango_command = sprintf
-    'pango-view --markup --dpi=300 -w 300 -o %s %s',
+    'pango-view --background=white --margin=40 --markup --dpi=300 -w 300 -o %s %s',
     $image_tempfile->filename,
     $text_tempfile->filename
 ;
 system $pango_command;
-
-my $mogrify_command = sprintf
-    'mogrify -bordercolor white -border 40 %s',
-    $image_tempfile->filename
-;
-system $mogrify_command;
 
 my $tweet_text = "$blog_title : $first_post_title $first_post_url";
 
