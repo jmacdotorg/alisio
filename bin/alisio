@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 
+our $VERSION = '0.01';
+
 use warnings;
 use strict;
 
@@ -11,39 +13,73 @@ use Net::Twitter;
 use YAML qw( LoadFile );
 use Getopt::Long qw( GetOptions );
 use FindBin;
+use Try::Tiny;
+use File::Copy;
+use HTML::Parser;
 
-my $config_file;
-GetOptions ( "config=s" => \$config_file );
+use Readonly;
+Readonly my $DEFAULT_PREVIEW_FILENAME => 'alisio.png';
+Readonly my $BRIGHTNESS_THRESHOLD     => 150;
 
-if ( defined $config_file ) {
-    unless ( -r $config_file ) {
-        die "Can't open config file $config_file: $!";
+Readonly my $DEFAULT_ROMAN_FONT => 'TimesNewRoman';
+Readonly my $DEFAULT_ITALIC_FONT => 'TimesNewRomanI';
+
+Readonly my $IMAGE_SUFFIX => '.png';
+Readonly my $TEXT_SUFFIX => '.txt';
+Readonly my $UNLINK_BOOL  => 1;
+
+Readonly my %IMAGE_TEMPFILE_CONFIG => (
+    UNLINK => $UNLINK_BOOL,
+    SUFFIX => $IMAGE_SUFFIX,
+);
+
+Readonly my %TEXT_TEMPFILE_CONFIG => (
+    UNLINK => $UNLINK_BOOL,
+    SUFFIX => $TEXT_SUFFIX,
+);
+
+my $html_stripper = HTML::Strip->new;
+my $html_parser   = HTML::Parser->new(api_version => 3);
+
+##########
+# Set up the config hash, priming it with command-line options.
+my %config;
+GetOptions ( \%config, 'config_file=s', 'preview=s', 'feed_url=s' );
+
+# Merge the contents of the config file, if present, into the config hash.
+if ( defined $config{ config_file } ) {
+    unless ( -r $config{ config_file } ) {
+        die "Can't open config file $config{ config_file }: $!";
     }
 }
 else {
-    $config_file = "$FindBin::Bin/../conf/alisio.conf";
+    $config{ config_file } = "$FindBin::Bin/../conf/alisio.conf";
 }
 
-my $config_ref = LoadFile( $config_file );
+my $config_file_ref = LoadFile( $config{ config_file } );
+foreach ( keys %$config_file_ref ) {
+    unless ( exists $config{ $_ } ) {
+        $config{ $_ } = $config_file_ref->{ $_ };
+    }
+}
 
-my $html_stripper = HTML::Strip->new;
+# Set some defaults.
+$config{ font } ||= $DEFAULT_ROMAN_FONT;
+$config{ exhortation_font } ||= $DEFAULT_ITALIC_FONT;
 
-my $twitter = Net::Twitter->new(
-    traits   => [qw/API::RESTv1_1/],
-    consumer_key        => $config_ref->{ consumer_key },
-    consumer_secret     => $config_ref->{ consumer_secret },
-    access_token        => $config_ref->{ access_token },
-    access_token_secret => $config_ref->{ access_token_secret},
-);
-
-my $feed_url = $config_ref->{ feed_url };
+##########
+# Fetch the feed document and extract basic information from it.
+my $feed_url = $config{ feed_url };
+unless ( $feed_url ) {
+    die "No feed_url specified, so I can't do anything.\n";
+}
 
 my $feed_dom = XML::LibXML->load_xml( location => $feed_url );
 my $feed_root = $feed_dom->documentElement;
 
 my @namespaces = $feed_root->getNamespaces;
 if ( scalar @namespaces > 1 ) {
-    die "Bzuh, there is more than one namespace defined. I die.";
+    die "Bzuh, there is more than one namespace defined in this feed. I die.";
 }
 
 my $xpc = XML::LibXML::XPathContext->new;
@@ -59,6 +95,9 @@ my $blog_url = $xpc->findvalue( 'feed:link[not(@rel)]/@href', $feed_root );
 # We want only the part of the URL after the schema.
 $blog_url =~ s{^\w+://}{};
 
+##########
+# Extract the title, URL, text, and (if present) first illustration from
+# the feed's most top-most post.
 my ( $first_post_node ) = $xpc->findnodes( '(feed:entry)[1]', $feed_root );
 
 my $first_post_title = $xpc->findvalue( 'feed:title', $first_post_node );
@@ -69,6 +108,11 @@ my $first_post_url =
 
 my $first_post_text = $xpc->findvalue( 'feed:content', $first_post_node );
 
+my $illustration_tempfile = q{};
+
+$html_parser->handler( start => \&find_img, "tagname,self,attr");
+$html_parser->parse( $first_post_text );
+
 my $clean_text = $html_stripper->parse( $first_post_text );
 $clean_text =~ s/^\s+//;
 $clean_text =~ s/ (\.|,)/$1/g; # Fix stuff like "A tag was removed ."
@@ -78,35 +122,231 @@ my ( $first_graf ) = $clean_text =~ /^(.*)/;
 my $exhortation = "To read the rest of this post, please click the link "
                   . "in the tweet, or visit $blog_url.";
 
-my $full_text = qq{$first_graf\n\n<i>$exhortation</i>};
-
-my $text_tempfile  = File::Temp->new;
-my $image_tempfile = File::Temp->new;
-
+my $text_tempfile = File::Temp->new( %TEXT_TEMPFILE_CONFIG );
 binmode $text_tempfile, ':utf8';
-print $text_tempfile $full_text;
+print $text_tempfile $first_graf;
 
-my $pango_command = sprintf
-    'pango-view --background=white --margin=40 --markup --dpi=300 -w 300 -o %s %s',
-    $image_tempfile->filename,
-    $text_tempfile->filename
-;
-system $pango_command;
+##########
+# Prepare all the temporary files we need for our image magic.
+my $pullquote_tempfile  = File::Temp->new( %IMAGE_TEMPFILE_CONFIG );
+my $exhortation_tempfile = File::Temp->new( %IMAGE_TEMPFILE_CONFIG );
+my $generic_tempfile = File::Temp->new( %IMAGE_TEMPFILE_CONFIG );
+my $final_image_tempfile = File::Temp->new( %IMAGE_TEMPFILE_CONFIG );
 
-my $tweet_text = "$blog_title : $first_post_title $first_post_url";
+##########
+# Variously torture and manipulate feed-fetched stuff until we have
+# a final image.
 
-my $media_ref = $twitter->upload( [ $image_tempfile->filename ] );
+# Create the transparent pullquote image
+system "convert -density 300 -font $config{font} -size 1100x -pointsize 10 -background transparent caption:\@$text_tempfile $pullquote_tempfile";
 
-my $alt_text = 'This image is just the first paragraph of the latest '
-               . "post at $blog_url. Please visit the link in the tweet "
-               . 'to read the full post.';
+system "mogrify -trim $pullquote_tempfile";
+system "mogrify -bordercolor none -border 40 $pullquote_tempfile";
 
-$twitter->create_media_metadata( {
-    media_id => $media_ref->{ media_id },
-    alt_text => { text => $alt_text },
-} );
+# Create the transparent exhortation image
+system "convert -density 300 -font $config{exhortation_font} -size 1100x -pointsize 10 -background transparent caption:'$exhortation' $exhortation_tempfile";
+system "mogrify -trim $exhortation_tempfile";
+system "mogrify -bordercolor none -border 40 $exhortation_tempfile";
 
-$twitter->update( {
-    status    => $tweet_text,
-    media_ids => $media_ref->{ media_id },
-} );
+# Measure widths and heights.
+my $pullquote_width = `identify -ping -format '%w' $pullquote_tempfile`;
+my $exhortation_width = `identify -ping -format '%w' $exhortation_tempfile`;
+my $pullquote_height = `identify -ping -format '%h' $pullquote_tempfile`;
+
+# Fatten up the thinner one so that they're the same width.
+my $skinnier_image;
+my $target_width;
+if ( $pullquote_width < $exhortation_width ) {
+    $skinnier_image = $pullquote_tempfile;
+    $target_width = $exhortation_width;
+}
+else {
+    $skinnier_image = $exhortation_tempfile;
+    $target_width = $pullquote_width;
+}
+system "convert $skinnier_image -background transparent -extent ${target_width}x${pullquote_height} $generic_tempfile";
+copy( "$generic_tempfile", "$skinnier_image" );
+
+my $hexcolor;
+
+if ( $illustration_tempfile ) {
+    # Resize the background image so it's the above-measured width.
+    system "convert $illustration_tempfile -resize ${target_width}x $generic_tempfile";
+    copy( "$generic_tempfile", "$illustration_tempfile" );
+
+    my $illustration_height = `identify -ping -format '%h' $illustration_tempfile`;
+    if ( $illustration_height > $pullquote_height ) {
+        # Take a middle-slice of the background image that is the same height.
+        system "convert $illustration_tempfile -gravity center -extent ${target_width}x${pullquote_height} $generic_tempfile";
+        copy( "$generic_tempfile", "$illustration_tempfile" );
+    }
+
+    # Measure the average color and brightness of the image.
+    my $bg_info = `convert $illustration_tempfile -colorspace rgb -resize 1x1 txt:-`;
+    my ( $red, $green, $blue );
+    ($hexcolor, $red, $green, $blue) = $bg_info =~ /(#\w+).*\((.+),(.+),(.+)\)/;
+
+    # Brightness-via-RGB formula stolen from...
+    # http://studio.imagemagick.org/discourse-server/viewtopic.php?t=14074#p48428
+    my $brightness = 0.299 * $red + 0.587 * $green + 0.114 * $blue;
+
+    # If the brightness is below our black-text threshold, make the text gray
+    # instead of black.
+    if ( $brightness < $BRIGHTNESS_THRESHOLD ) {
+        system "convert $pullquote_tempfile -fill white -colorize 90% $generic_tempfile";
+        copy( "$generic_tempfile", "$pullquote_tempfile" );
+        system "convert $exhortation_tempfile -fill white -colorize 90% $generic_tempfile";
+        copy( "$generic_tempfile", "$exhortation_tempfile" );
+    }
+}
+else {
+    $hexcolor = '#FFFFFF';
+}
+
+# Add this average color as a background to the two text images.
+system "convert $pullquote_tempfile \\( +clone -alpha opaque -fill '$hexcolor' -colorize 100% \\) +swap -geometry +0+0 -compose Over -composite -alpha off $generic_tempfile";
+copy( "$generic_tempfile", "$pullquote_tempfile");
+
+system "convert $exhortation_tempfile \\( +clone -alpha opaque -fill '$hexcolor' -colorize 100% \\) +swap -geometry +0+0 -compose Over -composite -alpha off $generic_tempfile";
+copy( "$generic_tempfile", "$exhortation_tempfile");
+
+# Append the images into a single vertical column.
+system "convert $pullquote_tempfile $illustration_tempfile $exhortation_tempfile -append $final_image_tempfile";
+
+
+#########
+# If we're in preview mode, copy the tempfile to a permanent location and exit.
+# Otherwise, try to post it to Twitter and exit.
+if ( $config{ preview } ) {
+    copy( "$final_image_tempfile", $config{ preview } )
+        or die "Can't write preview file to $config{ preview }: $!\n";
+}
+else {
+    my $twitter;
+
+    try {
+        $twitter = Net::Twitter->new(
+            traits   => [qw/API::RESTv1_1/],
+            consumer_key        => $config{ consumer_key },
+            consumer_secret     => $config{ consumer_secret },
+            access_token        => $config{ access_token },
+            access_token_secret => $config{ access_token_secret},
+        );
+    }
+    catch {
+        die "Twitter credentials missing or invalid. Error text:\n$_\n"
+            . "Run with the --preview "
+            . "option if you just want this program to output a local file.\n";
+    };
+
+    my $tweet_text = "$blog_title : $first_post_title $first_post_url";
+
+    my $media_ref = $twitter->upload( [ $final_image_tempfile->filename ] );
+
+    my $alt_text = $config{ alt_text };
+    $alt_text ||= 'This image is just the first paragraph of the latest '
+                  . "post at $blog_url. Please visit the link in the tweet "
+                  . 'to read the full post.';
+
+    $twitter->create_media_metadata( {
+        media_id => $media_ref->{ media_id },
+        alt_text => { text => $alt_text },
+    } );
+
+    $twitter->update( {
+        status    => $tweet_text,
+        media_ids => $media_ref->{ media_id }
+    } );
+}
+
+# find_img is an HTML::Parser start-handler callback.
+sub find_img {
+    my ( $tag, $parser, $attr ) = @_;
+    if ( $tag eq 'img' ) {
+        fetch_img( $attr->{ src } );
+        $parser->eof;
+    }
+}
+
+sub fetch_img {
+    my ( $url ) = @_;
+
+    $illustration_tempfile = File::Temp->new( UNLINK => $UNLINK_BOOL );
+    system( "curl -so $illustration_tempfile $url" );
+}
+
+=head1 NAME
+
+alisio - Tweet a link and text-image preview of a recent blog post
+
+=head1 SYNOPSIS
+
+On the command line:
+
+    alisio
+
+Run with no arguments, it the program will seek a config file stored at
+../conf/alisio.conf (relative to itself), and use the information found there
+to do its thing.
+
+Further command-line options listed below.
+
+=head1 DESCRIPTION
+
+This is a command-line tool that posts an image-preview of a recent blog post to
+Twitter, complete with alt-text, and well as a call-to-action to read the full
+post at the blog's own website. It adds an appropriate hyperlink to the tweet's
+text, in an attempt to make this easy Twitter-browsing humans and others.
+
+For instructions on installing, and configuring alisio, please see the README
+file that should have accompanied this distribution. It is also available online
+at L<https://github.com/jmacdotorg/alisio#alisio>.
+
+=head1 OPTIONS
+
+=over
+
+=item --config_file=C</path/to/alisio.conf>
+
+Specify the filesystem location of alisio's configuration file.
+
+Note that you can use this program with no config file at all, but only in
+preview mode, and only if you are okay with the default, English-language
+call-to-action text and alt text.
+
+=item --feed_url=C<http://example.com/url/of/feed.xml>
+
+A URL leading to a feed XML file, in Atom format.
+
+If not specified on the command line or in the config file, the program will
+exit and do nothing.
+
+=item --preview=C</path/to/output.png>
+
+Runs the program in I<preview mode>, where it will not connect to Twitter, and
+instead write the final image to the specified location on the filesystem.
+
+The provided file extension is relevant; alisio passes it along to ImageMagick,
+which will attempt to determine the desired image format based on it.
+
+The default value is C<./alisio.png>.
+
+=item --font=C<FontName>
+
+The font that alisio will use to render the main paragraph's text. The font name
+needs to be one that ImageMagick programs (such as C<convert>) understand.
+
+Default is C<TimesNewRoman>.
+
+=item --exhortation_font=C<FontName>
+
+The font that alisio will use to render the call-to-action text. The font name
+needs to be one that ImageMagick programs (such as C<convert>) understand.
+
+Default is C<TimesNewRomanI>. (That is, italicized Times.)
+
+=back
+
+=head1 AUTHOR
+
+Jason McIntosh <jmac@jmac.org>
