@@ -12,6 +12,10 @@ When configured with a Twitter account and a blog's Atom feed, this program upon
 
 * **And this is the kicker —** An image containing the most recent post's first paragraph, followed by an exhortation to read the rest of the post by clicking the attached link or just going to the blog's front page.
 
+    Furthermore, if the post contains at least one image (via an ordinary HTML `<img>` tag), then alisio will work that illustration into the resulting image, recoloring its output text and background so that everything looks reasonably good.
+
+Alternately, the program can just write the image to your local filesystem instead of posting it to Twitter.
+
 ## Example output
 
 ![Screenshot of an alisio-generated tweet](http://fogknife.com/images/posts/alisio-example-screenshot.png)
@@ -22,7 +26,7 @@ When configured with a Twitter account and a blog's Atom feed, this program upon
 
 You can find all this tool's prerequisite software through your favorite package manager (`brew` or `yum` or `apt-get` or whatever).
 
-* [Pango](http://www.pango.org), giving you the `pango-view` command-line program.
+* [ImageMagick](http://www.imagemagick.org), giving you the `mogrify`, `convert`, and `identify` command-line programs.
 
 * [libxml2](http://www.xmlsoft.org). (If the command `xml2-config --version` returns something that looks like a version number, you're probably OK.)
 
@@ -46,25 +50,27 @@ If the config file is "../config/alisio.conf" relative to the alisio script's lo
 
 Otherwise, run it like so:
 
-    alisio --config=/path/to/alisio.conf
+    alisio --config_file=/path/to/alisio.conf
 
-Either way, it should do the right thing, unless it doesn't, per the following section.
+If you would like it to output a local file rather than make a Twitter post, use the `preview` option:
+
+    alisio --config_file=/path/to/alisio.conf --preview=my_image.png
+    
+More command-line options exist, and you can `man` or `perldoc` the alisio program file to learn about them.
 
 ## Bugs and TODO
 
-This is super-alpha and doesn't even have a version number on it yet. Use at your own risk.
+This is super-alpha. Its author is still figuring out how it wants to work, and the interface might still change a lot. Use at your own risk.
 
-* No tests yet. ("Wait, come back," I say in a sleepy voice.)
+Known issues:
 
-* Rather inflexible. (Can't set the font to use, or the image background, etc.)
+* Rather inflexible. (Can't customize the call-to-action text, for example.)
 
 * It should really be able to work with both Atom and RSS. Well, it doesn't.
 
 * Blog posts with absurdly long titles will make the tweet-post fail silently.
 
 * Unexpected uses of the `<link>` element in the Atom document can make the program fail.
-
-* Honestly, anything unexpected will make the program fail, because: no tests yet.
 
 ## Blame
 

@@ -6,3 +6,7 @@ requires 'Net::Twitter';
 requires 'YAML';
 requires 'Getopt::Long';
 requires 'FindBin';
+requires 'Path::Class';
+requires 'File::Copy';
+requires 'Try::Tiny';
+requires 'HTML::Parser';
