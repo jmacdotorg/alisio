@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-our $VERSION = '0.01';
+our $VERSION = '0.2';
 
 use warnings;
 use strict;
@@ -152,19 +152,23 @@ system "mogrify -bordercolor none -border 40 $exhortation_tempfile";
 my $pullquote_width = `identify -ping -format '%w' $pullquote_tempfile`;
 my $exhortation_width = `identify -ping -format '%w' $exhortation_tempfile`;
 my $pullquote_height = `identify -ping -format '%h' $pullquote_tempfile`;
+my $exhortation_height = `identify -ping -format '%h' $exhortation_tempfile`;
 
 # Fatten up the thinner one so that they're the same width.
 my $skinnier_image;
 my $target_width;
+my $target_height;
 if ( $pullquote_width < $exhortation_width ) {
     $skinnier_image = $pullquote_tempfile;
     $target_width = $exhortation_width;
+    $target_height = $pullquote_height;
 }
 else {
     $skinnier_image = $exhortation_tempfile;
     $target_width = $pullquote_width;
+    $target_height = $exhortation_height;
 }
-system "convert $skinnier_image -background transparent -extent ${target_width}x${pullquote_height} $generic_tempfile";
+system "convert $skinnier_image -background transparent -extent ${target_width}x${target_height} $generic_tempfile";
 copy( "$generic_tempfile", "$skinnier_image" );
 
 my $hexcolor;
