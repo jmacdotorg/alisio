@@ -181,7 +181,7 @@ my $hexcolor;
 
 if ( $illustration_tempfile ) {
     # Resize the background image so it's the above-measured width.
-    call("convert $illustration_tempfile -resize ${target_width}x $generic_tempfile");
+    call("convert $illustration_tempfile +profile '*' -resize ${target_width}x $generic_tempfile");
     copy( "$generic_tempfile", "$illustration_tempfile" );
 
     my $illustration_height = `identify -ping -format '%h' $illustration_tempfile`;
