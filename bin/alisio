@@ -44,7 +44,13 @@ my $html_parser   = HTML::Parser->new(api_version => 3);
 ##########
 # Set up the config hash, priming it with command-line options.
 my %config;
-GetOptions ( \%config, 'config_file=s', 'preview=s', 'feed_url=s' );
+GetOptions (
+    \%config,
+    'config_file=s',
+    'preview=s',
+    'feed_url=s',
+    'verbose',
+);
 
 # Merge the contents of the config file, if present, into the config hash.
 if ( defined $config{ config_file } ) {
@@ -138,15 +144,15 @@ my $final_image_tempfile = File::Temp->new( %IMAGE_TEMPFILE_CONFIG );
 # a final image.
 
 # Create the transparent pullquote image
-system "convert -density 300 -font $config{font} -size 1100x -pointsize 10 -background transparent caption:\@$text_tempfile $pullquote_tempfile";
+call("convert -density 300 -font $config{font} -size 1100x -pointsize 10 -background transparent caption:\@$text_tempfile $pullquote_tempfile");
 
-system "mogrify -trim $pullquote_tempfile";
-system "mogrify -bordercolor none -border 40 $pullquote_tempfile";
+call("mogrify -trim $pullquote_tempfile");
+call("mogrify -bordercolor none -border 40 $pullquote_tempfile");
 
 # Create the transparent exhortation image
-system "convert -density 300 -font $config{exhortation_font} -size 1100x -pointsize 10 -background transparent caption:'$exhortation' $exhortation_tempfile";
-system "mogrify -trim $exhortation_tempfile";
-system "mogrify -bordercolor none -border 40 $exhortation_tempfile";
+call("convert -density 300 -font $config{exhortation_font} -size 1100x -pointsize 10 -background transparent caption:'$exhortation' $exhortation_tempfile");
+call("mogrify -trim $exhortation_tempfile");
+call("mogrify -bordercolor none -border 40 $exhortation_tempfile");
 
 # Measure widths and heights.
 my $pullquote_width = `identify -ping -format '%w' $pullquote_tempfile`;
@@ -168,20 +174,20 @@ else {
     $target_width = $pullquote_width;
     $target_height = $exhortation_height;
 }
-system "convert $skinnier_image -background transparent -extent ${target_width}x${target_height} $generic_tempfile";
+call("convert $skinnier_image -background transparent -extent ${target_width}x${target_height} $generic_tempfile");
 copy( "$generic_tempfile", "$skinnier_image" );
 
 my $hexcolor;
 
 if ( $illustration_tempfile ) {
     # Resize the background image so it's the above-measured width.
-    system "convert $illustration_tempfile -resize ${target_width}x $generic_tempfile";
+    call("convert $illustration_tempfile -resize ${target_width}x $generic_tempfile");
     copy( "$generic_tempfile", "$illustration_tempfile" );
 
     my $illustration_height = `identify -ping -format '%h' $illustration_tempfile`;
     if ( $illustration_height > $pullquote_height ) {
         # Take a middle-slice of the background image that is the same height.
-        system "convert $illustration_tempfile -gravity center -extent ${target_width}x${pullquote_height} $generic_tempfile";
+        call("convert $illustration_tempfile -gravity center -extent ${target_width}x${pullquote_height} $generic_tempfile");
         copy( "$generic_tempfile", "$illustration_tempfile" );
     }
 
@@ -197,9 +203,9 @@ if ( $illustration_tempfile ) {
     # If the brightness is below our black-text threshold, make the text gray
     # instead of black.
     if ( $brightness < $BRIGHTNESS_THRESHOLD ) {
-        system "convert $pullquote_tempfile -fill white -colorize 90% $generic_tempfile";
+        call("convert $pullquote_tempfile -fill white -colorize 90% $generic_tempfile");
         copy( "$generic_tempfile", "$pullquote_tempfile" );
-        system "convert $exhortation_tempfile -fill white -colorize 90% $generic_tempfile";
+        call("convert $exhortation_tempfile -fill white -colorize 90% $generic_tempfile");
         copy( "$generic_tempfile", "$exhortation_tempfile" );
     }
 }
@@ -208,14 +214,14 @@ else {
 }
 
 # Add this average color as a background to the two text images.
-system "convert $pullquote_tempfile \\( +clone -alpha opaque -fill '$hexcolor' -colorize 100% \\) +swap -geometry +0+0 -compose Over -composite -alpha off $generic_tempfile";
+call("convert $pullquote_tempfile \\( +clone -alpha opaque -fill '$hexcolor' -colorize 100% \\) +swap -geometry +0+0 -compose Over -composite -alpha off $generic_tempfile");
 copy( "$generic_tempfile", "$pullquote_tempfile");
 
-system "convert $exhortation_tempfile \\( +clone -alpha opaque -fill '$hexcolor' -colorize 100% \\) +swap -geometry +0+0 -compose Over -composite -alpha off $generic_tempfile";
+call("convert $exhortation_tempfile \\( +clone -alpha opaque -fill '$hexcolor' -colorize 100% \\) +swap -geometry +0+0 -compose Over -composite -alpha off $generic_tempfile");
 copy( "$generic_tempfile", "$exhortation_tempfile");
 
 # Append the images into a single vertical column.
-system "convert $pullquote_tempfile $illustration_tempfile $exhortation_tempfile -append $final_image_tempfile";
+call("convert $pullquote_tempfile $illustration_tempfile $exhortation_tempfile -append $final_image_tempfile");
 
 
 #########
@@ -276,7 +282,15 @@ sub fetch_img {
     my ( $url ) = @_;
 
     $illustration_tempfile = File::Temp->new( UNLINK => $UNLINK_BOOL );
-    system( "curl -so $illustration_tempfile $url" );
+    call("curl -so $illustration_tempfile $url");
+}
+
+sub call {
+    my ( $command ) = @_;
+    if ( $config{ verbose } ) {
+        warn "$command\n";
+    }
+    system $command;
 }
 
 =head1 NAME
