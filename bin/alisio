@@ -194,7 +194,7 @@ if ( $illustration_tempfile ) {
     # Measure the average color and brightness of the image.
     my $bg_info = `convert $illustration_tempfile -colorspace rgb -resize 1x1 txt:-`;
     my ( $red, $green, $blue );
-    ($hexcolor, $red, $green, $blue) = $bg_info =~ /(#\w+).*\((.+),(.+),(.+)\)/;
+    ($hexcolor, $red, $green, $blue) = $bg_info =~ /(#\w+).*\((.+?),(.+?),(.+?)(?:,.*?)?\)/;
 
     # Brightness-via-RGB formula stolen from...
     # http://studio.imagemagick.org/discourse-server/viewtopic.php?t=14074#p48428
