@@ -18,7 +18,7 @@ Alternately, the program can just write the image to your local filesystem inste
 
 ## Example output
 
-![Screenshot of an alisio-generated tweet](http://fogknife.com/images/posts/alisio-2.jpg)
+![Screenshot of an alisio-generated tweet](http://fogknife.com/images/posts/alisio_example_2.png)
 
 ## Installation
 
