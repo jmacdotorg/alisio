@@ -50,6 +50,7 @@ GetOptions (
     'preview=s',
     'feed_url=s',
     'verbose',
+    'text_only',
 );
 
 # Merge the contents of the config file, if present, into the config hash.
@@ -116,8 +117,10 @@ my $first_post_text = $xpc->findvalue( 'feed:content', $first_post_node );
 
 my $illustration_tempfile = q{};
 
-$html_parser->handler( start => \&find_img, "tagname,self,attr");
-$html_parser->parse( $first_post_text );
+unless ( $config{ text_only } ) {
+    $html_parser->handler( start => \&find_img, "tagname,self,attr");
+    $html_parser->parse( $first_post_text );
+}
 
 my $clean_text = $html_stripper->parse( $first_post_text );
 $clean_text =~ s/^\s+//;
@@ -362,6 +365,10 @@ The font that alisio will use to render the call-to-action text. The font name
 needs to be one that ImageMagick programs (such as C<convert>) understand.
 
 Default is C<TimesNewRomanI>. (That is, italicized Times.)
+
+=item --text_only
+
+If set, then alisio will disregard any images found in the source post.
 
 =back
 
