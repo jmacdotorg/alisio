@@ -24,6 +24,8 @@ Readonly my $BRIGHTNESS_THRESHOLD     => 150;
 Readonly my $DEFAULT_ROMAN_FONT => 'TimesNewRoman';
 Readonly my $DEFAULT_ITALIC_FONT => 'TimesNewRomanI';
 
+Readonly my $DEFAULT_PARAGRAPH => 1;
+
 Readonly my $IMAGE_SUFFIX => '.png';
 Readonly my $TEXT_SUFFIX => '.txt';
 Readonly my $UNLINK_BOOL  => 1;
@@ -49,6 +51,7 @@ GetOptions (
     'config_file=s',
     'preview=s',
     'feed_url=s',
+    'paragraph=i',
     'verbose',
     'text_only',
 );
@@ -73,6 +76,7 @@ foreach ( keys %$config_file_ref ) {
 # Set some defaults.
 $config{ font } ||= $DEFAULT_ROMAN_FONT;
 $config{ exhortation_font } ||= $DEFAULT_ITALIC_FONT;
+$config{ paragraph } //= $DEFAULT_PARAGRAPH;
 
 ##########
 # Fetch the feed document and extract basic information from it.
@@ -126,14 +130,28 @@ my $clean_text = $html_stripper->parse( $first_post_text );
 $clean_text =~ s/^\s+//;
 $clean_text =~ s/ (\.|,)/$1/g; # Fix stuff like "A tag was removed ."
 
-my ( $first_graf ) = $clean_text =~ /^(.*)/;
+my @paragraphs = grep { /\S/ } split /\n/, $clean_text;
+
+if ( $config{ paragraph } > @paragraphs ) {
+    die "Can't quote paragraph $config{ paragraph }, since there are only "
+        . scalar @paragraphs
+        . " paragraphs in the source text.\n"
+    ;
+}
+elsif ( $config{ paragraph } < 1 ) {
+    die "Can't quote paragraph $config{ paragraph }, because that's not "
+        . "a thing. (Must be 1 or greater.)\n"
+    ;
+}
+
+my ( $pullquote ) = $paragraphs[ $config{ paragraph } - 1 ];
 
 my $exhortation = "To read the rest of this post, please click the link "
                   . "in the tweet, or visit $blog_url.";
 
 my $text_tempfile = File::Temp->new( %TEXT_TEMPFILE_CONFIG );
 binmode $text_tempfile, ':utf8';
-print $text_tempfile $first_graf;
+print $text_tempfile $pullquote;
 
 ##########
 # Prepare all the temporary files we need for our image magic.
@@ -257,7 +275,7 @@ else {
     my $media_ref = $twitter->upload( [ $final_image_tempfile->filename ] );
 
     my $alt_text = $config{ alt_text };
-    $alt_text ||= 'This image is just the first paragraph of the latest '
+    $alt_text ||= 'This image is just one paragraph of the latest '
                   . "post at $blog_url. Please visit the link in the tweet "
                   . 'to read the full post.';
 
@@ -341,6 +359,14 @@ A URL leading to a feed XML file, in Atom format.
 
 If not specified on the command line or in the config file, the program will
 exit and do nothing.
+
+=item --paragraph=C<paragraph number>
+
+Specifies which paragraph alisio will choose at the text to quote within the
+generated image. Specifying B<1> will quote the first paragraph, B<2> the
+second paragraph, and so on.
+
+Default is C<1>.
 
 =item --preview=C</path/to/output.png>
 
