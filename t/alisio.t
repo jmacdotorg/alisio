@@ -12,8 +12,8 @@ use File::Temp;
 my $no_image_feed_file = make_feed_file( 'no_image.xml' );
 my $with_image_feed_file = make_feed_file( 'with_image.xml' );
 
-test_height( $no_image_feed_file, 375 );
-test_height( $with_image_feed_file, 585 );
+test_height( $no_image_feed_file, 381 );
+test_height( $with_image_feed_file, 595 );
 
 done_testing();
 
