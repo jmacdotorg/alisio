@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-our $VERSION = '0.5';
+our $VERSION = '0.6';
 
 use warnings;
 use strict;
