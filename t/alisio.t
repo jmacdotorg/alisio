@@ -11,9 +11,13 @@ use File::Temp;
 
 my $no_image_feed_file = make_feed_file( 'no_image.xml' );
 my $with_image_feed_file = make_feed_file( 'with_image.xml' );
+my $with_relative_path = make_feed_file( 'with_image_relative_url.xml' );
+my $with_absolute_path = make_feed_file( 'with_image_absolute_path.xml' );
 
 test_height( $no_image_feed_file, 381 );
 test_height( $with_image_feed_file, 595 );
+test_height( $with_relative_path, 595 );
+test_height( $with_absolute_path, 595 );
 
 done_testing();
 
@@ -48,7 +52,14 @@ sub make_feed_file {
         'unicorn.png',
     );
 
+    my $post_file = Path::Class::File->new(
+        "$FindBin::Bin",
+        'not_a_real_post_file.html'
+    );
+
     $xml =~ s/\[% image_path %\]/$image_file/g;
+    $xml =~ s/\[% post_path %\]/$post_file/g;
+    $xml =~ s/\[% dir_path %\]/$FindBin::Bin/g;
 
     my $feed_file = File::Temp->new;
     print $feed_file $xml;

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Fogknife]]></title>
+  <link href="http://fogknife.com/atom.xml" rel="self" />
+  <link href="http://fogknife.com" />
+  <updated>2017-03-16T22:17:46-04:00</updated>
+  <id>http://fogknife.com</id>
+  <author>
+    <name><![CDATA[Jason McIntosh]]></name>
+    <email><![CDATA[jmac@jmac.org]]></email>
+  </author>
+  <generator uri="https://github.com/jmacdotorg/plerd">Plerd</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Introducing Alisio]]></title>
+    <link href="file://[% post_path %]"/>
+    <published>2017-03-16T21:29:25-04:00</published>
+    <updated>2017-03-16T22:14:22-04:00</updated>
+    <id>http://fogknife.com/2017-03-16-introducing-alisio.html</id>
+    <content type="html"><![CDATA[<p>I just published <a href="https://github.com/jmacdotorg/alisio"><em>Alisio</em></a>, a free and open-source tool that allows bloggers such as myself to easily tweet text-as-image previews of recent posts. The results look like this:</p>
+
+<p><img src="img/unicorn.png" alt="Screenshot of an alisio-generated tweet" /></p>
+
+<p>It takes a bit of nerdish skill and resources to <a href="https://github.com/jmacdotorg/alisio#installation">set up</a>; it has requirements about as complex as those of <a href="http://fogknife.com/2017-02-22-automatically-posting-twitch-broadcasts-to-slack.html">Jeremy Bernard&#8217;s twitch-to-slack</a>, which I wrote about last month*. My adventures with that simple, discoverable, narrow-focused tool helped inspire the creation of this one, which I hope will possess the same positive attributes.</p>
+
+<p>I haven&#8217;t performed a rigorous investigation of incoming traffic sources to Fogknife, not since discovering that <a href="http://fogknife.com/2015-02-15-giving-up-on-subscriber-count-diy.html">counting RSS-based users is hard</a>. But I can tell from server logs that I get plenty of hits from social media, including but not limited to the Twitter posts I make after publishing something new here. I&#8217;ve long struggled with how to word those tweets &#8212; Should I just post the title and a link? Add a word-count? Write a separate micro-summary? &#8212; but in the end I am a very lazy person who gets dumb project ideas in the shower. This was my dumb idea yesterday! I hope it pans out, one way or another.</p>
+
+<p>As <a href="https://github.com/jmacdotorg/alisio#bugs-and-todo">Alisio&#8217;s README notes</a>, it&#8217;s very alpha, with all the fragility and inflexibility that implies. I expect that to shake itself out if I find it useful enough to improve. It therefore joins <a href="http://fogknife.com/2015-11-01-introducing-starble.html">Starble</a> and <a href="https://github.com/jmacdotorg/plerd">Plerd</a> as open-source, modestly scoped blogging tools that I created as share-worthy utilities but which I ultimately maintain for my own regular use. Not bad!</p>
+
+<hr />
+
+<p>* I can add, as a proud aside, that <a href="https://github.com/BernardJeremy/twitch-to-slack/pull/2">I have contributed to twitch-to-slack</a> since then, cleaning up its documentation in a way that makes my own blog post a bit obsolete&#8230;</p>
+]]></content>
+  </entry>
+  
+</feed>

@@ -294,7 +294,10 @@ else {
 sub find_img {
     my ( $tag, $parser, $attr ) = @_;
     if ( $tag eq 'img' ) {
-        fetch_img( $attr->{ src } );
+        my $url = URI->new( $attr->{ src } );
+        $url = $url->abs( $first_post_url );
+
+        fetch_img( $url );
         $parser->eof;
     }
 }
