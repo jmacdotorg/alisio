@@ -30,6 +30,8 @@ You can find all this tool's prerequisite software through your favorite package
 
 * [libxml2](http://www.xmlsoft.org). (If the command `xml2-config --version` returns something that looks like a version number, you're probably OK.)
 
+* Optional: [wkhtmltopdf](https://wkhtmltopdf.org), giving you the `wkhtmltoimage` command-line program. If installed, then you can invoke alisio with the `--preserve_markup` option, allowing its output image to retain the original text's inline markup.
+
 ### Perl modules
 
 If you enjoy blindly running `curl | bash` invocations straight off of GitHub README files as much as I do, then you can just do this:
@@ -60,15 +62,13 @@ More command-line options exist, and you can `man` or `perldoc` the alisio progr
 
 ## Bugs and TODO
 
-This is super-alpha. Its author is still figuring out how it wants to work, and the interface might still change a lot. Use at your own risk.
+This is beta software. Its author is still figuring out how it wants to work, and the interface might still change. Use at your own risk.
 
 Known issues:
 
 * Rather inflexible. (Can't customize the call-to-action text, for example.)
 
 * It should really be able to work with both Atom and RSS. Well, it doesn't.
-
-* Alisio strips all HTML markup, so the use of even simple text styles like italics go away. (I tried to remedy this by using the Pango text processor, but I found no way to adjust its line height via ImageMagick -- and its default spacing is unacceptably tight.)
 
 * Blog posts with absurdly long titles will make the tweet-post fail silently.
 

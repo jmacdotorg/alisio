@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-our $VERSION = '0.6';
+our $VERSION = '0.7';
 
 use warnings;
 use strict;
@@ -28,16 +28,12 @@ Readonly my $DEFAULT_PARAGRAPH => 1;
 
 Readonly my $IMAGE_SUFFIX => '.png';
 Readonly my $TEXT_SUFFIX => '.txt';
+Readonly my $HTML_SUFFIX => '.html';
 Readonly my $UNLINK_BOOL  => 1;
 
 Readonly my %IMAGE_TEMPFILE_CONFIG => (
     UNLINK => $UNLINK_BOOL,
     SUFFIX => $IMAGE_SUFFIX,
-);
-
-Readonly my %TEXT_TEMPFILE_CONFIG => (
-    UNLINK => $UNLINK_BOOL,
-    SUFFIX => $TEXT_SUFFIX,
 );
 
 my $html_stripper = HTML::Strip->new;
@@ -54,6 +50,7 @@ GetOptions (
     'paragraph=i',
     'verbose',
     'text_only',
+    'preserve_markup',
 );
 
 # Merge the contents of the config file, if present, into the config hash.
@@ -77,6 +74,11 @@ foreach ( keys %$config_file_ref ) {
 $config{ font } ||= $DEFAULT_ROMAN_FONT;
 $config{ exhortation_font } ||= $DEFAULT_ITALIC_FONT;
 $config{ paragraph } //= $DEFAULT_PARAGRAPH;
+
+Readonly my %TEXT_TEMPFILE_CONFIG => (
+    UNLINK => $UNLINK_BOOL,
+    SUFFIX => $config{preserve_markup}? $HTML_SUFFIX : $TEXT_SUFFIX,
+);
 
 ##########
 # Fetch the feed document and extract basic information from it.
@@ -126,11 +128,21 @@ unless ( $config{ text_only } ) {
     $html_parser->parse( $first_post_text );
 }
 
-my $clean_text = $html_stripper->parse( $first_post_text );
-$clean_text =~ s/^\s+//;
-$clean_text =~ s/ (\.|,)/$1/g; # Fix stuff like "A tag was removed ."
+my @paragraphs;
+my $current_paragraph;
+$html_parser->handler( text => \&fill_current_graf, "text");
+$html_parser->handler( start => \&ready_new_graf, "tagname, text");
+$html_parser->handler( end => \&register_current_graf, "tagname, text");
+$html_parser->parse( $first_post_text );
 
-my @paragraphs = grep { /\S/ } split /\n/, $clean_text;
+unless ( $config{ preserve_markup } ) {
+    for my $index (0..$#paragraphs) {
+        my $paragraph = $html_stripper->parse( $paragraphs[$index] );
+        $paragraph =~ s/^\s+//;
+        $paragraph =~ s/ (\.|,)/$1/g; # Fix stuff like "A tag was removed ."
+        $paragraphs[$index] = $paragraph;
+    }
+}
 
 if ( $config{ paragraph } > @paragraphs ) {
     die "Can't quote paragraph $config{ paragraph }, since there are only "
@@ -165,7 +177,12 @@ my $final_image_tempfile = File::Temp->new( %IMAGE_TEMPFILE_CONFIG );
 # a final image.
 
 # Create the transparent pullquote image
-call("convert -density 300 -font $config{font} -size 1100x -pointsize 10 -background transparent caption:\@$text_tempfile $pullquote_tempfile");
+if ( $config{ preserve_markup } ) {
+    call("wkhtmltoimage --quiet --transparent --width 1100 --encoding utf-8 --user-style-sheet $FindBin::Bin/../etc/alisio.css $text_tempfile $pullquote_tempfile");
+}
+else {
+    call("convert -density 300 -font $config{font} -size 1100x -pointsize 10 -background transparent caption:\@$text_tempfile $pullquote_tempfile");
+}
 
 call("mogrify -trim $pullquote_tempfile");
 call("mogrify -bordercolor none -border 40 $pullquote_tempfile");
@@ -302,6 +319,31 @@ sub find_img {
     }
 }
 
+sub ready_new_graf {
+    my ( $tag, $text ) = @_;
+    if ( $tag eq 'p' ) {
+        $current_paragraph = q{};
+    }
+    else {
+        $current_paragraph .= $text;
+    }
+}
+
+sub register_current_graf {
+    my ( $tag, $text ) = @_;
+    if ( $tag eq 'p' ) {
+        push @paragraphs, $current_paragraph;
+    }
+    else {
+        $current_paragraph .= $text;
+    }
+}
+
+sub fill_current_graf {
+    my ( $text ) = @_;
+    $current_paragraph .= $text;
+}
+
 sub fetch_img {
     my ( $url ) = @_;
 
@@ -398,6 +440,15 @@ Default is C<TimesNewRomanI>. (That is, italicized Times.)
 =item --text_only
 
 If set, then alisio will disregard any images found in the source post.
+
+=item --preserve_markup
+
+If set, then alisio will invoke C<wkhtmltoimage> to create the text image,
+instead of relying on ImageMagick for it. This will allow the text to preserve
+its inline markup, such as italic or bold text.
+
+Note that invoking this without C<wkhtmltoimage> available on your system will
+likely result in an error.
 
 =back
 

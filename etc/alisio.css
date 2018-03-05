@@ -1,0 +1,16 @@
+/*
+CSS for use by wkhtmltoimage, if aliso is invoked with --preserve_markup.
+*/
+
+body {
+    font-size: 41.6;
+}
+
+a {
+    text-decoration: none;
+    color: black;
+}
+
+img {
+    display: none;
+}

@@ -19,14 +19,18 @@ test_height( $with_image_feed_file, 595 );
 test_height( $with_relative_path, 595 );
 test_height( $with_absolute_path, 595 );
 
+test_height( $with_image_feed_file, 597, '--preserve_markup' );
+
 done_testing();
 
 sub test_height {
-    my ( $feed_file, $desired_height ) = @_;
+    my ( $feed_file, $desired_height, $additional_args ) = @_;
 
     my $output_file = File::Temp->new;
+    $additional_args ||= q{};
 
     system( "$FindBin::Bin/../bin/alisio --preview=$output_file "
+            . "$additional_args "
             . "--feed_url=file://$feed_file" );
 
     my $real_height = `identify -ping -format '%h' $output_file`;
