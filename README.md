@@ -68,6 +68,8 @@ Known issues:
 
 * It should really be able to work with both Atom and RSS. Well, it doesn't.
 
+* Alisio strips all HTML markup, so the use of even simple text styles like italics go away. (I tried to remedy this by using the Pango text processor, but I found no way to adjust its line height via ImageMagick -- and its default spacing is unacceptably tight.)
+
 * Blog posts with absurdly long titles will make the tweet-post fail silently.
 
 * Unexpected uses of the `<link>` element in the Atom document can make the program fail.
