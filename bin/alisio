@@ -448,7 +448,8 @@ instead of relying on ImageMagick for it. This will allow the text to preserve
 its inline markup, such as italic or bold text.
 
 Note that invoking this without C<wkhtmltoimage> available on your system will
-likely result in an error.
+likely result in an error. Note also that the file ../etc/alisio.css (relative
+to the location of the alisio executable) must exist for this to work.
 
 =back
 
