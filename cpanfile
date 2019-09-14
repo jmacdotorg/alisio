@@ -10,3 +10,5 @@ requires 'Path::Class';
 requires 'File::Copy';
 requires 'Try::Tiny';
 requires 'HTML::Parser';
+requires 'LWP';
+requires 'URI';

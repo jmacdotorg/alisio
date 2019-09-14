@@ -16,6 +16,8 @@ use FindBin;
 use Try::Tiny;
 use File::Copy;
 use HTML::Parser;
+use URI;
+use LWP;
 
 use Readonly;
 Readonly my $DEFAULT_PREVIEW_FILENAME => 'alisio.png';
@@ -38,6 +40,7 @@ Readonly my %IMAGE_TEMPFILE_CONFIG => (
 
 my $html_stripper = HTML::Strip->new;
 my $html_parser   = HTML::Parser->new(api_version => 3);
+my $ua            = LWP::UserAgent->new;
 
 ##########
 # Set up the config hash, priming it with command-line options.
@@ -87,7 +90,18 @@ unless ( $feed_url ) {
     die "No feed_url specified, so I can't do anything.\n";
 }
 
-my $feed_dom = XML::LibXML->load_xml( location => $feed_url );
+my $http_result = $ua->get( $feed_url );
+unless ( $http_result->is_success ) {
+    die "Failed to fetch feed_url '$feed_url': "
+        . $http_result->status_line
+        . "\n";
+}
+
+my $feed_tempfile  = File::Temp->new( UNLINK => 0 );
+print $feed_tempfile $http_result->content;
+close $feed_tempfile;
+
+my $feed_dom = XML::LibXML->load_xml( location => $feed_tempfile->filename );
 my $feed_root = $feed_dom->documentElement;
 
 my @namespaces = $feed_root->getNamespaces;
