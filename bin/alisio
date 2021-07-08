@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-our $VERSION = '0.8';
+our $VERSION = '0.81';
 
 use warnings;
 use strict;
@@ -23,8 +23,8 @@ use Readonly;
 Readonly my $DEFAULT_PREVIEW_FILENAME => 'alisio.png';
 Readonly my $BRIGHTNESS_THRESHOLD     => 150;
 
-Readonly my $DEFAULT_ROMAN_FONT => 'TimesNewRoman';
-Readonly my $DEFAULT_ITALIC_FONT => 'TimesNewRomanI';
+Readonly my $DEFAULT_ROMAN_FONT => 'Times-Roman';
+Readonly my $DEFAULT_ITALIC_FONT => 'Times-Italic';
 
 Readonly my $DEFAULT_PARAGRAPH => 1;
 
@@ -195,7 +195,7 @@ if ( $config{ preserve_markup } ) {
     call("wkhtmltoimage --quiet --transparent --width 1100 --encoding utf-8 --user-style-sheet $FindBin::Bin/../etc/alisio.css $text_tempfile $pullquote_tempfile");
 }
 else {
-    call("convert -density 300 -font $config{font} -size 1100x -pointsize 10 -background transparent caption:\@$text_tempfile $pullquote_tempfile");
+    call("convert -density 300 -font $config{font} -size 1100x -interline-spacing 5 -pointsize 10 -background transparent caption:\@$text_tempfile $pullquote_tempfile");
 }
 
 call("mogrify -trim $pullquote_tempfile");
@@ -246,7 +246,7 @@ if ( $illustration_tempfile ) {
     # Measure the average color and brightness of the image.
     my $bg_info = `convert $illustration_tempfile -colorspace rgb -resize 1x1 txt:-`;
     my ( $red, $green, $blue );
-    ($hexcolor, $red, $green, $blue) = $bg_info =~ /(#\w+).*\((.+?),(.+?),(.+?)(?:,.*?)?\)/;
+    ($hexcolor, $red, $green, $blue) = $bg_info =~ /(#\w+).*\((.+?)%?,(.+?)%?,(.+?)%?(?:,.*?)?\)/;
 
     # Brightness-via-RGB formula stolen from...
     # http://studio.imagemagick.org/discourse-server/viewtopic.php?t=14074#p48428
