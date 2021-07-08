@@ -54,6 +54,8 @@ GetOptions (
     'verbose',
     'text_only',
     'preserve_markup',
+    'font=s',
+    'exhortation_font=s',
 );
 
 # Merge the contents of the config file, if present, into the config hash.
